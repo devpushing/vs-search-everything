@@ -1,0 +1,140 @@
+{
+  "name": "vs-search-everywhere",
+  "displayName": "Search Everything",
+  "description": "Search Everywhere like in IntelliJ, support massive codebases",
+  "version": "0.0.1",
+  "publisher": "devpushing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devpushing/vs-search-everywhere"
+  },
+  "bugs": {
+    "url": "https://github.com/devpushing/vs-search-everywhere/issues"
+  },
+  "homepage": "https://github.com/devpushing/vs-search-everywhere#readme",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "search",
+    "find",
+    "symbols",
+    "files",
+    "navigation",
+    "intellij",
+    "search everywhere",
+    "trigram"
+  ],
+  "activationEvents": [
+    "onCommand:searchEverywhere.search",
+    "onCommand:searchEverywhere.refreshIndex"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "searchEverywhere.search",
+        "title": "Search Everything: Search",
+        "category": "Search"
+      },
+      {
+        "command": "searchEverywhere.refreshIndex",
+        "title": "Search Everything: Reset Index",
+        "category": "Search"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "searchEverywhere.search",
+        "key": "ctrl+shift+f",
+        "mac": "cmd+shift+f",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Search Everything",
+      "properties": {
+        "searchEverywhere.includeSymbols": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include symbols in search results"
+        },
+        "searchEverywhere.includeFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include files in search results"
+        },
+        "searchEverywhere.maxResults": {
+          "type": "number",
+          "default": 50,
+          "description": "Maximum number of results to display"
+        },
+        "searchEverywhere.excludePatterns": {
+          "type": "array",
+          "default": [
+            "**/node_modules/**",
+            "**/.git/**"
+          ],
+          "description": "Glob patterns to exclude from search"
+        },
+        "searchEverywhere.debounceDelay": {
+          "type": "number",
+          "default": 300,
+          "minimum": 100,
+          "maximum": 1000,
+          "description": "Delay in milliseconds before executing search after typing stops"
+        },
+        "searchEverywhere.debugMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging for troubleshooting"
+        },
+        "searchEverywhere.trigramCaseSensitive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable case-sensitive matching for trigram search"
+        },
+        "searchEverywhere.trigramMinLength": {
+          "type": "number",
+          "default": 3,
+          "minimum": 2,
+          "maximum": 5,
+          "description": "Minimum query length for trigram search"
+        },
+        "searchEverywhere.enableCamelCaseMatching": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CamelCase matching (e.g., 'gUN' matches 'getUserName')"
+        },
+        "searchEverywhere.trigramStoragePath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path for trigram index storage (empty for default location)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "dependencies": {
+    "sql.js": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}
