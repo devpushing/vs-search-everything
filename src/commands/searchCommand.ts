@@ -4,7 +4,8 @@ import { SymbolSearchProvider } from '../providers/symbolSearchProvider';
 import { SearchItem, SearchItemType } from '../types/search';
 import { TrigramIndexService } from '../services/trigramIndexService';
 import { SqliteTrigramStorage } from '../storage/sqliteTrigramStorage';
-import { TrigramStorageConfig } from '../types/trigramIndex';
+import { InMemoryTrigramStorage } from '../storage/inMemoryTrigramStorage';
+import { TrigramStorageConfig, TrigramStorageAdapter } from '../types/trigramIndex';
 import { debounce } from '../utils/debounce';
 import * as path from 'path';
 
@@ -18,21 +19,28 @@ export class SearchCommand {
     private initializationPromise: Promise<void> | null = null;
 
     constructor(private context: vscode.ExtensionContext) {
-        const config = vscode.workspace.getConfiguration('searchEverywhere');
+        const config = vscode.workspace.getConfiguration('searchEverything');
         const excludePatterns = config.get<string[]>('excludePatterns') || [];
         const debounceDelay = config.get<number>('debounceDelay', 300);
         
-        // Initialize trigram service with SQLite storage
+        // Initialize trigram service with selected storage type
+        const storageType = config.get<string>('storageType', 'sqlite');
         const storagePath = config.get<string>('trigramStoragePath') || 
             path.join(context.globalStorageUri.fsPath, 'trigram-index.db');
         
         const storageConfig: TrigramStorageConfig = {
             storagePath,
-            inMemory: false,
+            inMemory: storageType === 'memory',
             extensionPath: context.extensionPath
         };
         
-        const storage = new SqliteTrigramStorage(storageConfig);
+        let storage: TrigramStorageAdapter;
+        if (storageType === 'memory') {
+            storage = new InMemoryTrigramStorage(storageConfig);
+            vscode.window.showInformationMessage('Using in-memory storage (volatile, faster)');
+        } else {
+            storage = new SqliteTrigramStorage(storageConfig);
+        }
         this.trigramIndexService = new TrigramIndexService(context, storage);
         
         this.fileSearchProvider = new FileSearchProvider(excludePatterns);
@@ -104,7 +112,7 @@ export class SearchCommand {
         try {
             // Ensure service is initialized
             await this.initializeService();
-            const config = vscode.workspace.getConfiguration('searchEverywhere');
+            const config = vscode.workspace.getConfiguration('searchEverything');
             const includeFiles = config.get<boolean>('includeFiles', true);
             const includeSymbols = config.get<boolean>('includeSymbols', true);
             const maxResults = config.get<number>('maxResults', 50);

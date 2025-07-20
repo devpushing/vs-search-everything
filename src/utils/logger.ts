@@ -10,14 +10,14 @@ class Logger {
         
         // Listen for configuration changes
         vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration('searchEverywhere.debugMode')) {
+            if (e.affectsConfiguration('searchEverything.debugMode')) {
                 this.updateDebugMode();
             }
         });
     }
 
     private updateDebugMode(): void {
-        const config = vscode.workspace.getConfiguration('searchEverywhere');
+        const config = vscode.workspace.getConfiguration('searchEverything');
         this.debugMode = config.get<boolean>('debugMode', false);
         if (this.debugMode) {
             this.outputChannel.show();

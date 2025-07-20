@@ -21,12 +21,17 @@ export class SqliteTrigramStorage implements TrigramStorageAdapter {
     private inTransaction = false;
     private saveTimer: NodeJS.Timeout | null = null;
     private batchOperations = 0;
-    private readonly BATCH_SIZE = 1000;
+    private BATCH_SIZE = 10000; // No longer readonly, will be set from config
     private autoCommit = true;
 
     constructor(config: TrigramStorageConfig) {
         this.config = config;
         this.dbPath = config.inMemory ? ':memory:' : config.storagePath;
+        
+        // Read batch size from VS Code configuration
+        const vsConfig = vscode.workspace.getConfiguration('searchEverything');
+        this.BATCH_SIZE = vsConfig.get<number>('trigramBatchSize', 10000);
+        logger.log(`SQLite storage initialized with batch size: ${this.BATCH_SIZE}`);
     }
 
     async initialize(): Promise<void> {
@@ -223,6 +228,18 @@ export class SqliteTrigramStorage implements TrigramStorageAdapter {
     // Batch control methods
     setAutoCommit(enabled: boolean): void {
         this.autoCommit = enabled;
+        
+        // When disabling auto-commit (bulk operations), use more aggressive settings
+        if (!enabled && this.db) {
+            // OFF = no syncs until manual sync (fastest but risky)
+            // We'll sync manually at the end
+            this.db.run('PRAGMA synchronous = OFF');
+            logger.log('Set synchronous = OFF for bulk operations');
+        } else if (enabled && this.db) {
+            // Return to NORMAL for incremental updates
+            this.db.run('PRAGMA synchronous = NORMAL');
+            logger.log('Set synchronous = NORMAL for incremental updates');
+        }
     }
 
     // Item management
@@ -574,6 +591,36 @@ export class SqliteTrigramStorage implements TrigramStorageAdapter {
     async vacuum(): Promise<void> {
         if (!this.db) throw new Error('Database not initialized');
         this.db.run('VACUUM');
+    }
+    
+    // Get database file info
+    getDatabaseInfo(): { path: string; sizeBytes?: number } {
+        const info: { path: string; sizeBytes?: number } = {
+            path: this.dbPath
+        };
+        
+        // Force a checkpoint to ensure all data is written to disk
+        if (this.db && this.dbPath !== ':memory:') {
+            try {
+                this.db.run('PRAGMA wal_checkpoint(TRUNCATE)');
+            } catch (error) {
+                logger.log('Could not checkpoint database:', error);
+            }
+        }
+        
+        // Try to get file size if it's not in-memory
+        if (this.dbPath !== ':memory:') {
+            try {
+                const fs = require('fs');
+                const stats = fs.statSync(this.dbPath);
+                info.sizeBytes = stats.size;
+            } catch (error) {
+                // File might not exist yet or other error
+                logger.log('Could not get database file size:', error);
+            }
+        }
+        
+        return info;
     }
 
     // Helper methods

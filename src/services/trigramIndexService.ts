@@ -28,7 +28,7 @@ export class TrigramIndexService {
     ) {
         this.storage = storageAdapter;
         
-        const config = vscode.workspace.getConfiguration('searchEverywhere');
+        const config = vscode.workspace.getConfiguration('searchEverything');
         this.caseSensitive = config.get<boolean>('trigramCaseSensitive', false);
         this.minTrigramLength = config.get<number>('trigramMinLength', 3);
         this.enableCamelCase = config.get<boolean>('enableCamelCaseMatching', true);
@@ -129,16 +129,46 @@ export class TrigramIndexService {
                 const totalTime = Date.now() - startTime;
                 const stats = await this.storage.getStats();
                 
+                // Save database to disk and get info
+                if ((this.storage as any).saveToFile) {
+                    (this.storage as any).saveToFile();
+                }
+                
+                // Get database info
+                let dbInfo: { path: string; sizeBytes?: number } | null = null;
+                if ((this.storage as any).getDatabaseInfo) {
+                    dbInfo = (this.storage as any).getDatabaseInfo();
+                }
+                
+                // Get memory usage for in-memory storage
+                let memoryInfo = null;
+                if ((this.storage as any).getMemoryUsage) {
+                    memoryInfo = (this.storage as any).getMemoryUsage();
+                }
+                
                 logger.log('Trigram index built successfully', {
                     fileCount,
                     symbolCount,
                     totalTime: `${totalTime}ms`,
-                    stats
+                    stats,
+                    database: dbInfo ? {
+                        path: dbInfo.path,
+                        sizeBytes: dbInfo.sizeBytes,
+                        sizeMB: dbInfo.sizeBytes ? (dbInfo.sizeBytes / 1024 / 1024).toFixed(2) + ' MB' : 'unknown'
+                    } : null,
+                    memory: memoryInfo ? {
+                        heapUsedMB: (memoryInfo.heapUsed / 1024 / 1024).toFixed(2) + ' MB',
+                        shardInfo: memoryInfo.shardInfo,
+                        stats: memoryInfo.stats
+                    } : null
                 });
                 
-                vscode.window.showInformationMessage(
-                    `Trigram index built: ${fileCount} files, ${symbolCount} symbols in ${(totalTime / 1000).toFixed(1)}s`
-                );
+                let infoMessage = `Trigram index built: ${fileCount} files, ${symbolCount} symbols in ${(totalTime / 1000).toFixed(1)}s`;
+                if (dbInfo && dbInfo.sizeBytes) {
+                    infoMessage += ` (${(dbInfo.sizeBytes / 1024 / 1024).toFixed(1)} MB)`;
+                }
+                
+                vscode.window.showInformationMessage(infoMessage);
             } catch (error) {
                 logger.error('Failed to build trigram index:', error);
                 
@@ -163,7 +193,7 @@ export class TrigramIndexService {
         progress: vscode.Progress<{ message?: string; increment?: number }>,
         token: vscode.CancellationToken
     ): Promise<number> {
-        const config = vscode.workspace.getConfiguration('searchEverywhere');
+        const config = vscode.workspace.getConfiguration('searchEverything');
         const excludePatterns = config.get<string[]>('excludePatterns', []);
         
         // Add more default exclusions for large projects
@@ -196,7 +226,8 @@ export class TrigramIndexService {
         logger.log(`Found ${files.length} files to index`);
         let indexed = 0;
         let lastProgress = 0;
-        const BATCH_SIZE = 1000; // Commit every 1000 files
+        const vsConfig = vscode.workspace.getConfiguration('searchEverything');
+        const BATCH_SIZE = vsConfig.get<number>('trigramBatchSize', 10000);
         
         for (const file of files) {
             if (token.isCancellationRequested) break;
@@ -228,8 +259,9 @@ export class TrigramIndexService {
                     increment: increment
                 });
                 
-                // Log progress
-                if (indexed % 500 === 0) {
+                // Log progress at 1/10th of batch size or every 1000, whichever is larger
+                const logInterval = Math.max(1000, Math.floor(BATCH_SIZE / 10));
+                if (indexed % logInterval === 0) {
                     logger.log(`Progress: ${indexed}/${files.length} files indexed`);
                 }
                 
@@ -245,7 +277,8 @@ export class TrigramIndexService {
         progress: vscode.Progress<{ message?: string; increment?: number }>,
         token: vscode.CancellationToken
     ): Promise<number> {
-        const BATCH_SIZE = 1000; // Same as in indexFiles
+        const vsConfig = vscode.workspace.getConfiguration('searchEverything');
+        const BATCH_SIZE = vsConfig.get<number>('trigramBatchSize', 10000);
         
         try {
             const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
@@ -313,8 +346,9 @@ export class TrigramIndexService {
                             increment: increment
                         });
                         
-                        // Log progress
-                        if (indexed % 500 === 0) {
+                        // Log progress at 1/10th of batch size or every 1000, whichever is larger
+                        const logInterval = Math.max(1000, Math.floor(BATCH_SIZE / 10));
+                        if (indexed % logInterval === 0) {
                             logger.log(`Progress: ${indexed}/${symbols.length} symbols indexed`);
                         }
                         
@@ -505,7 +539,7 @@ export class TrigramIndexService {
     private setupFileWatchers(): void {
         logger.log('Setting up file watchers for trigram index...');
         
-        const config = vscode.workspace.getConfiguration('searchEverywhere');
+        const config = vscode.workspace.getConfiguration('searchEverything');
         const excludePatterns = config.get<string[]>('excludePatterns', []);
         
         this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*');

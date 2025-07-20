@@ -6,7 +6,7 @@ All notable changes to the "Search Everything" extension will be documented in t
 
 ### Added
 - Initial release of Search Everything
-- IntelliJ-style "Search Everywhere" functionality
+- IntelliJ-style "Search Everything" functionality
 - Trigram-based indexing for fast search
 - Support for massive codebases (millions of files)
 - CamelCase matching (e.g., "gUN" matches "getUserName")

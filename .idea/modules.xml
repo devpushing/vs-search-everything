@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/vs-search-everywhere.iml" filepath="$PROJECT_DIR$/.idea/vs-search-everywhere.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/vs-search-everything.iml" filepath="$PROJECT_DIR$/.idea/vs-search-everything.iml" />
     </modules>
   </component>
 </project>

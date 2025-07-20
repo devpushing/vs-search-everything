@@ -8,7 +8,7 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('Search Everything extension is now active!');
     
     // Enable debug logging if configured
-    const config = vscode.workspace.getConfiguration('searchEverywhere');
+    const config = vscode.workspace.getConfiguration('searchEverything');
     if (config.get<boolean>('debugMode', false)) {
         logger.setEnabled(true);
     }
@@ -16,19 +16,19 @@ export function activate(context: vscode.ExtensionContext) {
     searchCommand = new SearchCommand(context);
     
     const searchDisposable = vscode.commands.registerCommand(
-        'searchEverywhere.search',
+        'searchEverything.search',
         () => searchCommand?.execute()
     );
     
     const refreshDisposable = vscode.commands.registerCommand(
-        'searchEverywhere.refreshIndex',
+        'searchEverything.refreshIndex',
         () => searchCommand?.refreshIndex()
     );
     
     // Watch for debug mode changes
     const configChangeListener = vscode.workspace.onDidChangeConfiguration(async (e) => {
-        if (e.affectsConfiguration('searchEverywhere.debugMode')) {
-            const newConfig = vscode.workspace.getConfiguration('searchEverywhere');
+        if (e.affectsConfiguration('searchEverything.debugMode')) {
+            const newConfig = vscode.workspace.getConfiguration('searchEverything');
             logger.setEnabled(newConfig.get<boolean>('debugMode', false));
         }
     });

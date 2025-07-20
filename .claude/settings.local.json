@@ -9,7 +9,9 @@
       "Bash(npm run lint)",
       "WebFetch(domain:plugins.jetbrains.com)",
       "WebFetch(domain:sqlite.org)",
-      "Bash(vsce package:*)"
+      "Bash(vsce package:*)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

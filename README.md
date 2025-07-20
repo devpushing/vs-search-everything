@@ -1,6 +1,6 @@
 # Search Everything for VS Code
 
-Fast, IntelliJ-style "Search Everywhere" functionality for Visual Studio Code. Search through files and symbols instantly, even in massive codebases with millions of files.
+Fast, IntelliJ-style "Search Everything" functionality for Visual Studio Code. Search through files and symbols instantly, even in massive codebases with millions of files.
 
 ## Features
 
@@ -38,18 +38,20 @@ Fast, IntelliJ-style "Search Everywhere" functionality for Visual Studio Code. S
 
 Customize the extension through VS Code settings:
 
-- `searchEverywhere.includeSymbols`: Include symbols in search results (default: `true`)
-- `searchEverywhere.includeFiles`: Include files in search results (default: `true`)
-- `searchEverywhere.maxResults`: Maximum number of results to display (default: `50`)
-- `searchEverywhere.excludePatterns`: Glob patterns to exclude from search (default: `["**/node_modules/**", "**/.git/**"]`)
-- `searchEverywhere.trigramCaseSensitive`: Enable case-sensitive matching (default: `false`)
-- `searchEverywhere.trigramMinLength`: Minimum query length for trigram search (default: `3`)
-- `searchEverywhere.enableCamelCaseMatching`: Enable CamelCase matching (default: `true`)
-- `searchEverywhere.debugMode`: Enable debug logging (default: `false`)
+- `searchEverything.includeSymbols`: Include symbols in search results (default: `true`)
+- `searchEverything.includeFiles`: Include files in search results (default: `true`)
+- `searchEverything.maxResults`: Maximum number of results to display (default: `50`)
+- `searchEverything.excludePatterns`: Glob patterns to exclude from search (default: `["**/node_modules/**", "**/.git/**"]`)
+- `searchEverything.trigramCaseSensitive`: Enable case-sensitive matching (default: `false`)
+- `searchEverything.trigramMinLength`: Minimum query length for trigram search (default: `3`)
+- `searchEverything.enableCamelCaseMatching`: Enable CamelCase matching (default: `true`)
+- `searchEverything.trigramBatchSize`: Number of operations before committing to database (default: `10000`)
+- `searchEverything.storageType`: Storage backend - "sqlite" (persistent) or "memory" (faster but volatile) (default: `sqlite`)
+- `searchEverything.debugMode`: Enable debug logging (default: `false`)
 
 ## How It Works
 
-This extension uses trigram indexing (3-character sequences) similar to IntelliJ IDEA's "Search Everywhere" feature. This approach provides:
+This extension uses trigram indexing (3-character sequences) similar to IntelliJ IDEA's "Search Everything" feature. This approach provides:
 
 - Deterministic, fast search results
 - Low memory footprint
@@ -79,7 +81,7 @@ The index is stored using SQLite (via WebAssembly) and automatically updates as 
 
 ## Contributing
 
-Found a bug or have a feature request? Please open an issue on [GitHub](https://github.com/your-username/vs-search-everywhere).
+Found a bug or have a feature request? Please open an issue on [GitHub](https://github.com/your-username/vs-search-everything).
 
 ## License
 
