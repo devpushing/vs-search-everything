@@ -11,7 +11,10 @@
       "WebFetch(domain:sqlite.org)",
       "Bash(vsce package:*)",
       "WebFetch(domain:gist.github.com)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(npm run benchmark:*)",
+      "Bash(npx mocha:*)"
     ],
     "deny": []
   }

@@ -21,6 +21,8 @@ export class TrigramIndexService {
     private caseSensitive: boolean;
     private minTrigramLength: number;
     private enableCamelCase: boolean;
+    private isIndexing = false;
+    private currentIndexingToken: vscode.CancellationTokenSource | null = null;
 
     constructor(
         private context: vscode.ExtensionContext,
@@ -76,12 +78,27 @@ export class TrigramIndexService {
     }
 
     private async buildIndex(): Promise<void> {
+        if (this.isIndexing) {
+            logger.log('Indexing already in progress, skipping...');
+            return;
+        }
+        
         return vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: "Search Everything",
             cancellable: true
         }, async (progress, token) => {
             const startTime = Date.now();
+            this.isIndexing = true;
+            
+            // Create our own cancellation token source to track cancellation
+            this.currentIndexingToken = new vscode.CancellationTokenSource();
+            
+            // Link the progress token to our token
+            token.onCancellationRequested(() => {
+                logger.log('Index build cancellation requested');
+                this.currentIndexingToken?.cancel();
+            });
             
             try {
                 // Disable auto-commit for bulk operations
@@ -95,20 +112,24 @@ export class TrigramIndexService {
                 // Initial progress
                 progress.report({ message: "Discovering files...", increment: 0 });
                 logger.log('Starting to build trigram index...');
-                const fileCount = await this.indexFiles(progress, token);
+                const fileCount = await this.indexFiles(progress, this.currentIndexingToken.token);
                 
-                if (token.isCancellationRequested) {
+                if (this.currentIndexingToken.token.isCancellationRequested) {
                     await this.storage.rollbackTransaction();
-                    throw new Error('Indexing cancelled');
+                    logger.log('Indexing cancelled after file indexing');
+                    vscode.window.showInformationMessage('Index building cancelled');
+                    return;
                 }
                 
                 // Index symbols
                 progress.report({ message: "Indexing symbols...", increment: 50 });
-                const symbolCount = await this.indexSymbols(progress, token);
+                const symbolCount = await this.indexSymbols(progress, this.currentIndexingToken.token);
                 
-                if (token.isCancellationRequested) {
+                if (this.currentIndexingToken.token.isCancellationRequested) {
                     await this.storage.rollbackTransaction();
-                    throw new Error('Indexing cancelled');
+                    logger.log('Indexing cancelled after symbol indexing');
+                    vscode.window.showInformationMessage('Index building cancelled');
+                    return;
                 }
                 
                 // Commit all changes
@@ -184,7 +205,14 @@ export class TrigramIndexService {
                     (this.storage as any).setAutoCommit(true);
                 }
                 
+                if ((error as Error).message !== 'Indexing cancelled') {
+                    vscode.window.showErrorMessage(`Failed to build index: ${error}`);
+                }
+                
                 throw error;
+            } finally {
+                this.isIndexing = false;
+                this.currentIndexingToken = null;
             }
         });
     }
@@ -230,7 +258,10 @@ export class TrigramIndexService {
         const BATCH_SIZE = vsConfig.get<number>('trigramBatchSize', 10000);
         
         for (const file of files) {
-            if (token.isCancellationRequested) break;
+            if (token.isCancellationRequested) {
+                logger.log(`File indexing cancelled at ${indexed}/${files.length} files`);
+                break;
+            }
             
             const relativePath = vscode.workspace.asRelativePath(file);
             const fileName = path.basename(relativePath);
@@ -301,7 +332,10 @@ export class TrigramIndexService {
             }
             
             for (const [filePath, fileSymbols] of symbolsByFile) {
-                if (token.isCancellationRequested) break;
+                if (token.isCancellationRequested) {
+                    logger.log(`Symbol indexing cancelled at ${indexed}/${symbols.length} symbols`);
+                    break;
+                }
                 
                 // Get or create parent file item
                 let parentItem = await this.storage.getItemByPath(filePath);
@@ -316,6 +350,11 @@ export class TrigramIndexService {
                 }
                 
                 for (const symbol of fileSymbols) {
+                    if (token.isCancellationRequested) {
+                        logger.log(`Symbol indexing cancelled at ${indexed}/${symbols.length} symbols`);
+                        return indexed;
+                    }
+                    
                     // Add symbol item
                     const itemId = await this.storage.addItem({
                         id: 0,
@@ -590,30 +629,60 @@ export class TrigramIndexService {
         const updates = new Map(this.pendingUpdates);
         this.pendingUpdates.clear();
         
+        if (updates.size === 0) return;
+        
         logger.log(`Processing ${updates.size} pending updates`);
         
-        try {
-            await this.storage.beginTransaction();
-            
-            for (const [filePath, operation] of updates) {
-                switch (operation) {
-                    case 'add':
-                        await this.addFileToIndex(filePath);
-                        break;
-                    case 'update':
-                        await this.updateFileInIndex(filePath);
-                        break;
-                    case 'delete':
-                        await this.deleteFileFromIndex(filePath);
-                        break;
+        return vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Search Everything",
+            cancellable: false
+        }, async (progress) => {
+            try {
+                await this.storage.beginTransaction();
+                
+                let processed = 0;
+                const total = updates.size;
+                
+                for (const [filePath, operation] of updates) {
+                    progress.report({
+                        message: `${operation === 'add' ? 'Adding' : operation === 'update' ? 'Updating' : 'Removing'}: ${path.basename(filePath)}`,
+                        increment: (100 / total)
+                    });
+                    
+                    switch (operation) {
+                        case 'add':
+                            await this.addFileToIndex(filePath);
+                            break;
+                        case 'update':
+                            await this.updateFileInIndex(filePath);
+                            break;
+                        case 'delete':
+                            await this.deleteFileFromIndex(filePath);
+                            break;
+                    }
+                    
+                    processed++;
+                    logger.log(`Processed update ${processed}/${total}: ${operation} ${filePath}`);
                 }
+                
+                await this.storage.commitTransaction();
+                
+                const stats = await this.storage.getStats();
+                logger.log(`Updates processed successfully`, {
+                    processed: total,
+                    stats
+                });
+                
+                if (total > 1) {
+                    vscode.window.showInformationMessage(`Index updated: ${total} files processed`);
+                }
+            } catch (error) {
+                logger.error('Failed to process updates:', error);
+                await this.storage.rollbackTransaction();
+                vscode.window.showErrorMessage(`Failed to update index: ${error}`);
             }
-            
-            await this.storage.commitTransaction();
-        } catch (error) {
-            logger.error('Failed to process updates:', error);
-            await this.storage.rollbackTransaction();
-        }
+        });
     }
 
     private async addFileToIndex(filePath: string): Promise<void> {
@@ -661,6 +730,13 @@ export class TrigramIndexService {
 
     async refreshIndex(): Promise<void> {
         logger.log('Refreshing trigram index...');
+        
+        // Clear any pending updates first
+        if (this.updateTimer) {
+            clearTimeout(this.updateTimer);
+            this.updateTimer = null;
+        }
+        this.pendingUpdates.clear();
         
         // Ensure storage is initialized before clearing
         if (!this.isInitialized) {
@@ -752,6 +828,12 @@ export class TrigramIndexService {
     dispose(): void {
         logger.log('Disposing trigram index service...');
         
+        // Cancel any ongoing indexing
+        if (this.currentIndexingToken) {
+            this.currentIndexingToken.cancel();
+            this.currentIndexingToken = null;
+        }
+        
         if (this.fileWatcher) {
             this.fileWatcher.dispose();
             this.fileWatcher = null;
@@ -762,6 +844,7 @@ export class TrigramIndexService {
             this.updateTimer = null;
         }
         
+        this.pendingUpdates.clear();
         this.storage.close();
         
         logger.log('Trigram index service disposed');

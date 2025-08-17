@@ -137,17 +137,23 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "npm run compile && node ./out/test/trigramUtils.standalone.test.js",
+    "test:full": "npm run compile && mocha ./out/test/**/*.test.js",
+    "benchmark": "npm run compile && node ./out/benchmarks/standaloneBenchmark.js"
   },
   "dependencies": {
     "sql.js": "^1.8.0"
   },
   "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.6",
     "@types/node": "20.x",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "eslint": "^8.56.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
     "typescript": "^5.3.3"
   }
 }
