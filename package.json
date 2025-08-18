@@ -139,7 +139,10 @@
     "lint": "eslint src --ext ts",
     "test": "npm run compile && node ./out/test/trigramUtils.standalone.test.js",
     "test:full": "npm run compile && mocha ./out/test/**/*.test.js",
-    "benchmark": "npm run compile && node ./out/benchmarks/standaloneBenchmark.js"
+    "benchmark": "npm run compile && node ./out/benchmarks/standaloneBenchmark.js",
+    "package": "npm run compile && npx vsce package",
+    "build:package": "npm run compile && npx vsce package",
+    "publish:local": "npm run package"
   },
   "dependencies": {
     "sql.js": "^1.8.0"
@@ -154,6 +157,7 @@
     "eslint": "^8.56.0",
     "glob": "^10.3.10",
     "mocha": "^10.2.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@vscode/vsce": "^2.24.0"
   }
 }
